@@ -23,29 +23,8 @@ window.onload = updateDateTime;
 <body>
 <div class="dashboard-container">
 
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <h4>
-                <img class = "yes" src = "gics_image.png"  alt = "Image of Logo" width = "50" height = "50">
-                Genesis Integrated Christian School
-            </h4>
-            <p class="user">Welcome, <?= htmlspecialchars($_SESSION['username']); ?></p>
-        </div>
-        <nav class="menu">
-            <a href="#" class="menu-item active">📋 Enrollment</a>
-            <a href="#" class="menu-item">🎓 Student Record</a>
-            <a href="#" class="menu-item">💰 Payment Tracking</a>
-            <a href="#" class="menu-item">📚 Section & Schedule</a>
-            <a href="#" class="menu-item">📑 Reports</a>
-            <a href="#" class="menu-item">⚙️ Maintenance</a>
-            <a href="#" class="menu-item">🔐 Security / User</a>
-            <a href="#" class="menu-item">❓ Help</a>
-        </nav>
-        <form method="POST" action="login.php">
-            <button class="logout-btn">Logout</button>
-        </form>
-    </aside>
+    <!-- Sidebar (included) -->
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
     <!-- Main Content -->
     <main class="main-content">

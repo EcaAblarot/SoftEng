@@ -3,37 +3,56 @@ session_start();
 include 'db.php';
 
 $message = "";
-$attempts = $_SESSION['attempts'] ?? 0;
+$attempts = isset($_SESSION['attempts']) ? intval($_SESSION['attempts']) : 0;
+
+// Handle logout posted from dashboard
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['logout'])) {
+    session_unset();
+    session_destroy();
+    header('Location: login.php');
+    exit();
+}
 
 if (isset($_POST['login'])) {
-    $username = trim($_POST['username']);
-    $password = trim($_POST['password']);
+    $username = trim($_POST['username'] ?? '');
+    $password = trim($_POST['password'] ?? '');
 
-    $sql = "SELECT * FROM users WHERE username='$username'";
-    $result = $conn->query($sql);
+    // Prepared statement
+    $stmt = $conn->prepare('SELECT * FROM users WHERE username = ?');
+    if ($stmt) {
+        $stmt->bind_param('s', $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-    if ($result->num_rows > 0) {
-        $user = $result->fetch_assoc();
-        if (password_verify($password, $user['password'])) {
-            $_SESSION['username'] = $username;
-            $_SESSION['attempts'] = 0;
-            header("Location: dashboard.php");
-            exit();
-        } else {
-            $attempts++;
-            $_SESSION['attempts'] = $attempts;
-
-            if ($attempts >= 3) {
-                $_SESSION['attempts'] = 0; // reset counter
-                $_SESSION['recover_user'] = $username;
-                header("Location: forgot_password.php");
+        if ($result && $result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            if (password_verify($password, $user['password'])) {
+                // Regenerate session id on login
+                session_regenerate_id(true);
+                $_SESSION['username'] = $username;
+                $_SESSION['attempts'] = 0;
+                header('Location: dashboard.php');
                 exit();
-            }
+            } else {
+                $attempts++;
+                $_SESSION['attempts'] = $attempts;
 
-            $message = "Invalid password. Attempts: $attempts / 3";
+                if ($attempts >= 3) {
+                    $_SESSION['attempts'] = 0; // reset counter
+                    $_SESSION['recover_user'] = $username;
+                    header('Location: forgot_password.php');
+                    exit();
+                }
+
+                $message = "Invalid password. Attempts: $attempts / 3";
+            }
+        } else {
+            $message = 'Username not found.';
         }
+
+        $stmt->close();
     } else {
-        $message = "Username not found.";
+        $message = 'Server error. Please try again later.';
     }
 }
 ?>
@@ -53,7 +72,7 @@ if (isset($_POST['login'])) {
     <h2>Genesis Integrated Christian Scool</h2>
 
     <?php if ($message): ?>
-        <div class="alert"><?= $message ?></div>
+        <div class="alert"><?= htmlspecialchars($message) ?></div>
     <?php endif; ?>
 
     <form method="POST">

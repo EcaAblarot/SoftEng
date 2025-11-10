@@ -6,32 +6,48 @@ $message = "";
 $username = $_SESSION['recover_user'] ?? "";
 
 if (!$username) {
-    header("Location: login.php");
+    header('Location: login.php');
     exit();
 }
 
 if (isset($_POST['recover'])) {
-    $a1 = strtolower(trim($_POST['answer1']));
-    $a2 = strtolower(trim($_POST['answer2']));
-    $a3 = strtolower(trim($_POST['answer3']));
-    $newpass = password_hash($_POST['new_password'], PASSWORD_DEFAULT);
+    $a1 = strtolower(trim($_POST['answer1'] ?? ''));
+    $a2 = strtolower(trim($_POST['answer2'] ?? ''));
+    $a3 = strtolower(trim($_POST['answer3'] ?? ''));
+    $newpass = password_hash($_POST['new_password'] ?? '', PASSWORD_DEFAULT);
 
-    $sql = "SELECT * FROM users WHERE username='$username'";
-    $result = $conn->query($sql);
+    // Use prepared statement to fetch stored answers
+    $stmt = $conn->prepare('SELECT answer1, answer2, answer3 FROM users WHERE username = ?');
+    if ($stmt) {
+        $stmt->bind_param('s', $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-    if ($result->num_rows > 0) {
-        $user = $result->fetch_assoc();
-        if (
-            $a1 == strtolower($user['answer1']) &&
-            $a2 == strtolower($user['answer2']) &&
-            $a3 == strtolower($user['answer3'])
-        ) {
-            $conn->query("UPDATE users SET password='$newpass' WHERE username='$username'");
-            $message = "✅ Password successfully reset! You can now log in.";
-            unset($_SESSION['recover_user']);
-        } else {
-            $message = "❌ Incorrect answers. Try again.";
+        if ($result && $result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            if (
+                $a1 === strtolower($user['answer1']) &&
+                $a2 === strtolower($user['answer2']) &&
+                $a3 === strtolower($user['answer3'])
+            ) {
+                $upd = $conn->prepare('UPDATE users SET password = ? WHERE username = ?');
+                if ($upd) {
+                    $upd->bind_param('ss', $newpass, $username);
+                    $upd->execute();
+                    $message = '✅ Password successfully reset! You can now log in.';
+                    unset($_SESSION['recover_user']);
+                    $upd->close();
+                } else {
+                    $message = 'Server error. Please try again later.';
+                }
+            } else {
+                $message = '❌ Incorrect answers. Try again.';
+            }
         }
+
+        $stmt->close();
+    } else {
+        $message = 'Server error. Please try again later.';
     }
 }
 ?>
@@ -48,7 +64,7 @@ if (isset($_POST['recover'])) {
     <h2>Password Recovery</h2>
 
     <?php if ($message): ?>
-        <div class="alert"><?= $message ?></div>
+        <div class="alert"><?= htmlspecialchars($message) ?></div>
     <?php endif; ?>
 
     <form method="POST">
